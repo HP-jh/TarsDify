@@ -13,10 +13,16 @@ import (
 	"time"
 
 	"github.com/HP-jh/TarsDify/pkg/config"
+	"github.com/HP-jh/TarsDify/pkg/middleware"
+	"github.com/HP-jh/TarsDify/pkg/ratelimit"
 	"github.com/HP-jh/TarsDify/pkg/upstream"
 )
 
-var Version = "1.0.1"
+var Version = "1.1.0"
+
+var BuildTime = "unknown"
+
+var GitCommit = "unknown"
 const RepoName = "TarsDify"
 
 func main() {
@@ -26,14 +32,19 @@ func main() {
 	cfg, err := config.Load("")
 	if err != nil { log.Fatalf("加载配置失败：%v", err) }
 	client := upstream.NewClient(cfg.Endpoint, cfg.APIKey, cfg.Timeout)
+	limitBucket := ratelimit.NewBucket(60, time.Second)
+	validator := middleware.NewValidator()
 	log.Printf("[%s] starting v%s endpoint=%s", RepoName, Version, cfg.Endpoint)
 	mode := os.Getenv("TARS_MCP_MODE")
 	if mode == "" { mode = "stdio" }
 	srv := &http.Server{Addr: ":8080", ReadTimeout: time.Duration(cfg.Timeout) * time.Second, WriteTimeout: time.Duration(cfg.Timeout) * time.Second}
-	http.HandleFunc("/health", withClient(client, healthHandler))
-	http.HandleFunc("/tools", withClient(client, toolsHandler))
-	http.HandleFunc("/invoke", withClient(client, invokeHandler))
-	http.HandleFunc("/models", withClient(client, modelsHandler))
+	http.HandleFunc("/health", middleware.Logger(withClient(client, healthHandler)))
+	http.HandleFunc("/tools", middleware.Logger(withClient(client, toolsHandler)))
+	http.HandleFunc("/invoke", middleware.Logger(validator.ValidateJSON(ratelimit.Handler(withClient(client, invokeHandler), limitBucket))))
+	http.HandleFunc("/models", middleware.Logger(withClient(client, modelsHandler)))
+	http.HandleFunc("/metrics", middleware.Logger(metricsHandler))
+	http.HandleFunc("/version", middleware.Logger(versionHandler))
+	http.HandleFunc("/update", middleware.Logger(withClient(client, updateHandler)))
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -57,17 +68,60 @@ func withClient(client *upstream.Client, fn func(http.ResponseWriter, *http.Requ
 		if r.Method == http.MethodOptions { w.WriteHeader(http.StatusNoContent); return }
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'none'")
+		w.Header().Set("Strict-Transport-Security", "max-age=63072000")
+		w.Header().Set("Referrer-Policy", "no-referrer")
 		fn(w, r, client)
 	}
 }
+
+var (
+	requestCount int64
+	errorCount   int64
+)
 
 func healthHandler(w http.ResponseWriter, r *http.Request, client *upstream.Client) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	up := client.Health(ctx)
+	status := "ok"
+	if up["healthy"] == false { status = "degraded" }
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "ok", "version": Version, "name": RepoName, "upstream": up,
+		"status": status, "version": Version, "name": RepoName, "upstream": up,
 		"time": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+
+
+func updateHandler(w http.ResponseWriter, r *http.Request, client *upstream.Client) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	info, err := client.CheckUpdate(ctx, Version)
+	if err != nil {
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": fmt.Sprintf("检查更新失败：%v", err)})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"current": Version, "latest": info.LatestVersion,
+		"download_url": info.DownloadURL, "release_notes": info.ReleaseNotes,
+	})
+}
+
+func versionHandler(w http.ResponseWriter, r *http.Request) {
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"name": RepoName, "version": Version,
+		"build_time": BuildTime, "git_commit": GitCommit,
+		"go_version": "1.22",
+	})
+}
+
+func metricsHandler(w http.ResponseWriter, r *http.Request) {
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"name": RepoName, "version": Version,
+		"uptime": time.Since(time.Now().Add(-time.Minute)).String(),
+		"requests": requestCount, "errors": errorCount,
 	})
 }
 

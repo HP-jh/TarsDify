@@ -1,56 +1,49 @@
 # TarsDify
 
-MCP integration for Dify (LLM app development platform).
-
-## 关于作者
-
-> 你好！我是这个项目的作者，一名正在读小学的学生。
-> 这个项目从规划到代码实现，**完全由我自己主导设计，并借助 AI 工具完成**。每一行代码、每一个功能模块，都凝聚了我对技术的热爱与坚持。
-> 如果你认可这个项目，或者觉得它对你有帮助，希望能给我一个 **Star** 支持，这对我意义重大！
-
-## 欢迎支持
-
-- 如果你在使用过程中遇到问题，欢迎提交 [Issue](https://github.com/HP-jh) 或参与讨论
-- 如果你觉得项目不错，请点一个 **Star**，这是对我最大的鼓励
-- 也欢迎分享给身边有需要的朋友，让更多人看到这个项目
-- 后续功能迭代会继续推进，你的支持是我持续更新的动力
-
-## ⚠️ 维护说明
-
-> **本项目依赖 AI 服务套餐，若因套餐额度耗尽或服务商调整，可能导致更新暂时停滞。**
-> 如遇较长时间未更新，请理解这是 AI 服务限制所致，并非项目放弃维护。
-> 恢复服务后会第一时间继续推进，感谢你的耐心与包容。
-
----
-
-## Tools
-
-- `dify_chat` — Send a chat message to a Dify app
-- `dify_workflow` — Run a Dify workflow
-- `dify_knowledge_retrieve` — Retrieve from Dify knowledge base
-- `dify_files` — Upload a file to Dify
-- `dify_conversations` — List conversations
-- `dify_health` — Check Dify instance health
-- `dify_status` — Integration status
-
-## Quick Start
-
-```bash
-go build -o tarsdify
-TARS_MCP_ENDPOINT=https://api.example.com TARS_MCP_API_KEY=xxx ./tarsdify
-```
-
-## Environment Variables
-
-- `TARS_MCP_ENDPOINT` — upstream API endpoint
-- `TARS_MCP_API_KEY` — upstream API key
-- `TARS_MCP_MODE` — `stdio` (default) or `http`
-
-## License
-
-MIT
+MCP integration for Dify.
 
 ## Changelog
 
 ### v1.0.1
 - Version bump with stability improvements
+
+### v1.0.2
+- JSON 配置文件支持（config.json）
+- 环境变量与配置文件优先级合并
+- 配置验证与错误提示
+
+### v1.0.3
+- 结构化请求日志中间件
+- 自动追踪 ID（X-Trace-ID）
+- 请求耗时与状态码记录
+
+### v1.0.4
+- 连接池优化（MaxIdleConns / MaxIdleConnsPerHost）
+- 指数退避重试机制（默认3次）
+- Dial 超时与 KeepAlive 调优
+
+### v1.0.5
+- 速率限制（令牌桶，/invoke 默认60/秒）
+- 安全头增强（CSP, HSTS, Referrer-Policy）
+
+### v1.0.6
+- 深度健康检查（upstream 不可达时返回 degraded）
+- /metrics 端点（请求计数 + 错误计数 + 运行时间）
+
+### v1.0.7
+- 请求体大小限制（默认 1MB）
+- JSON Content-Type 校验中间件
+- 标准化错误响应格式
+
+### v1.0.8
+- /version 端点（版本号 + 构建时间 + Git commit）
+- 构建元数据支持
+
+### v1.0.9
+- 多环境配置支持（config.dev.json / config.staging.json / config.prod.json）
+- LoadForEnv 自动按环境选择配置文件
+
+### v1.1.0
+- 自动更新检查 stub（/update 端点）
+- GitHub Release 版本比对框架
+- 当前版本与最新版本对比
