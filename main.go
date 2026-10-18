@@ -16,7 +16,7 @@ import (
 	"github.com/HP-jh/TarsDify/pkg/upstream"
 )
 
-var Version = "1.0.0"
+var Version = "1.0.1"
 const RepoName = "TarsDify"
 
 func main() {

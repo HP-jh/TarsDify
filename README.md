@@ -28,3 +28,8 @@ TARS_MCP_ENDPOINT=https://api.example.com TARS_MCP_API_KEY=xxx ./tarsdify
 ## License
 
 MIT
+
+## Changelog
+
+### v1.0.1
+- Version bump with stability improvements
